@@ -23,7 +23,7 @@ object ApiClient {
     private var _api: ApiService? = null
 
     fun setBaseUrl(url: String) {
-        val normalizedUrl = if (url.endsWith("/")) url else "$url/"
+        val normalizedUrl = url.removeSuffix("/")
         synchronized(this) {
             if (normalizedUrl != baseUrl) {
                 baseUrl = normalizedUrl
@@ -32,8 +32,7 @@ object ApiClient {
         }
     }
 
-    fun getBaseUrl(): String = baseUrl
-
+    
     fun getApi(): ApiService {
         return _api ?: synchronized(this) {
             _api ?: Retrofit.Builder()
@@ -50,6 +49,7 @@ object ApiClient {
         val wsBase = baseUrl
             .replace("https://", "wss://")
             .replace("http://", "ws://")
-        return "${wsBase}ws/$token"
+            .removeSuffix("/")
+        return "$wsBase/ws/$token"
     }
 }

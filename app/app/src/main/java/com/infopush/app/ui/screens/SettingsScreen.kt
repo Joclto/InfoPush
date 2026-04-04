@@ -1,7 +1,7 @@
 package com.infopush.app.ui.screens
 
-import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
@@ -10,6 +10,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.core.net.toUri
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -33,12 +36,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,15 +56,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.Notifications
 import com.infopush.app.data.api.ApiClient
 import com.infopush.app.data.model.PushRequest
 import com.infopush.app.data.repository.MessageRepository
 import com.infopush.app.data.repository.SettingsRepository
 import com.infopush.app.service.PushService
 import kotlinx.coroutines.launch
+
+// 显示 Toast 消息的辅助函数
+private fun showToast(context: Context, message: String) {
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +84,7 @@ fun SettingsScreen(
     val pushToken by settingsRepo.pushToken.collectAsState(initial = null)
     val username by settingsRepo.username.collectAsState(initial = null)
     val notificationSound by settingsRepo.notificationSound.collectAsState(initial = "default")
+    var showPermissionGuide by remember { mutableStateOf(false) } // 控制权限引导对话框显示
 
     // 获取声音名称
     fun getSoundName(soundUriStr: String): String {
@@ -90,16 +100,68 @@ fun SettingsScreen(
         }
     }
 
+    // 检查是否有 WRITE_SETTINGS 权限
+    fun hasWriteSettingsPermission(context: Context): Boolean {
+        return Settings.System.canWrite(context)
+    }
+
+    
+    // 应用通知声音设置
+    fun applyNotificationSound(context: Context) {
+        if (notificationSound == "default") {
+            setSystemDefaultNotificationSound(context)
+            showToast(context, "已设置为默认提示音")
+        } else {
+            try {
+                val uri = notificationSound.toUri()
+                setSystemNotificationSound(context, uri)
+                showToast(context, "提示音已设置")
+            } catch (_: Exception) {
+                showToast(context, "无法设置声音")
+            }
+        }
+    }
+
+    // 处理权限引导返回结果
+    val settingsResultLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        // 用户从设置页面返回后，检查权限状态
+        if (hasWriteSettingsPermission(context)) {
+            applyNotificationSound(context)
+        }
+    }
+
+    // 打开系统设置页面（用于 WRITE_SETTINGS 权限）
+    fun openSystemSettingsForPermission(context: Context) {
+        val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+            data = "package:${context.packageName}".toUri()
+        }
+        settingsResultLauncher.launch(intent)
+    }
+
+
     // 声音选择器 Launcher
     val soundPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         @Suppress("DEPRECATION")
         val uri: Uri? = result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-        uri?.let {
+        if (uri == null) {
+            // 用户选择了"无"或"默认"
+            scope.launch {
+                settingsRepo.setNotificationSound("default")
+                // 设置系统默认声音
+                setSystemDefaultNotificationSound(context)
+                showToast(context, "已设置为默认提示音")
+            }
+        } else {
+            // 用户选择了自定义声音
             scope.launch {
                 settingsRepo.setNotificationSound(uri.toString())
-                Toast.makeText(context, "提示音已设置", Toast.LENGTH_SHORT).show()
+                // 设置系统声音
+                setSystemNotificationSound(context, uri)
+                showToast(context, "提示音已设置")
             }
         }
     }
@@ -108,6 +170,11 @@ fun SettingsScreen(
     var selectedTemplate by remember { mutableStateOf(TestTemplate.TEXT) }
     var isSending by remember { mutableStateOf(false) }
     var sendResult by remember { mutableStateOf<String?>(null) }
+
+    // 可编辑的标题和内容
+    var editTitle by remember { mutableStateOf(selectedTemplate.title) }
+    var editContent by remember { mutableStateOf(selectedTemplate.content) }
+    var editUrl by remember { mutableStateOf(selectedTemplate.url ?: "") }
 
     Scaffold(
         topBar = {
@@ -168,7 +235,7 @@ fun SettingsScreen(
                             pushToken?.let { token ->
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 clipboard.setPrimaryClip(ClipData.newPlainText("push_token", token))
-                                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                                showToast(context, "已复制")
                             }
                         }) {
                             Icon(Icons.Default.ContentCopy, contentDescription = "复制")
@@ -192,7 +259,7 @@ fun SettingsScreen(
                     IconButton(onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("api_example", apiExample))
-                        Toast.makeText(context, "已复制 API 示例", Toast.LENGTH_SHORT).show()
+                        showToast(context, "已复制 API 示例")
                     }) {
                         Icon(Icons.Default.ContentCopy, contentDescription = "复制示例")
                     }
@@ -261,17 +328,23 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                         OutlinedButton(onClick = {
-                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "选择提示音")
-                                putExtra(
-                                    RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
-                                    if (notificationSound == "default") null else notificationSound.toUri()
-                                )
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                            if (hasWriteSettingsPermission(context)) {
+                                // 已有权限，直接打开声音选择器
+                                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "选择提示音")
+                                    putExtra(
+                                        RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                                        if (notificationSound == "default") null else notificationSound.toUri()
+                                    )
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                }
+                                soundPickerLauncher.launch(intent)
+                            } else {
+                                // 没有权限，显示引导对话框
+                                showPermissionGuide = true
                             }
-                            soundPickerLauncher.launch(intent)
                         }) {
                             Icon(Icons.Default.Notifications, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
@@ -289,7 +362,7 @@ fun SettingsScreen(
                                     val ringtone = RingtoneManager.getRingtone(context, notificationSound.toUri())
                                     ringtone?.play()
                                 } catch (_: Exception) {
-                                    Toast.makeText(context, "无法播放声音", Toast.LENGTH_SHORT).show()
+                                    showToast(context, "无法播放声音")
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -324,6 +397,9 @@ fun SettingsScreen(
                                 selected = selectedTemplate == template,
                                 onClick = {
                                     selectedTemplate = template
+                                    editTitle = template.title
+                                    editContent = template.content
+                                    editUrl = template.url ?: ""
                                     sendResult = null
                                 },
                                 label = { Text(template.label) }
@@ -333,15 +409,40 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 预览内容
-                    Text(
-                        text = selectedTemplate.preview,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 可编辑的标题
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("标题") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 可编辑的内容
+                    OutlinedTextField(
+                        value = editContent,
+                        onValueChange = { editContent = it },
+                        label = { Text("内容") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        maxLines = 5
+                    )
+
+                    // 如果是链接模板，显示可编辑的链接
+                    if (selectedTemplate == TestTemplate.URL) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = editUrl,
+                            onValueChange = { editUrl = it },
+                            label = { Text("链接（可选）") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -358,7 +459,11 @@ fun SettingsScreen(
                                     sendResult = null
                                     try {
                                         ApiClient.setBaseUrl(serverUrl)
-                                        val req = selectedTemplate.toRequest()
+                                        val req = selectedTemplate.toRequest().copy(
+                                            title = editTitle.ifEmpty { selectedTemplate.title },
+                                            content = editContent.ifEmpty { selectedTemplate.content },
+                                            url = if (selectedTemplate == TestTemplate.URL) editUrl else null
+                                        )
                                         val resp = ApiClient.getApi().pushTestMessage(token, req)
                                         sendResult = if (resp.code == 200) "发送成功" else resp.msg
                                     } catch (e: Exception) {
@@ -368,7 +473,7 @@ fun SettingsScreen(
                                     }
                                 }
                             },
-                            enabled = !isSending && pushToken != null
+                            enabled = !isSending && pushToken != null && (editTitle.isNotBlank() || editContent.isNotBlank())
                         ) {
                             if (isSending) {
                                 CircularProgressIndicator(
@@ -423,33 +528,101 @@ fun SettingsScreen(
             }
         }
     }
+
+    // 权限引导对话框
+    if (showPermissionGuide) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("需要系统权限")
+                }
+            },
+            text = {
+                Text(
+                    "InfoPush 需要系统权限来设置通知声音。\n\n" +
+                    "请点击\"去设置\"，然后在应用信息页面中找到\n" +
+                    "特殊访问权限 → 修改系统设置，\n" +
+                    "并开启此权限。\n\n" +
+                    "开启后请返回应用继续设置。"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        openSystemSettingsForPermission(context)
+                    }
+                ) {
+                    Text("\u53BB\u8BBE\u7F6E")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
+
+// 常量定义
+private const val DEFAULT_NOTIFICATION_SOUND = "content://settings/system/notification_sound"
+
+// 设置系统默认通知声音
+private fun setSystemDefaultNotificationSound(context: Context) {
+    try {
+        Settings.System.putString(
+            context.contentResolver,
+            Settings.System.NOTIFICATION_SOUND,
+            DEFAULT_NOTIFICATION_SOUND
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+// 设置系统通知声音
+private fun setSystemNotificationSound(context: Context, uri: Uri) {
+    try {
+        Settings.System.putString(
+            context.contentResolver,
+            Settings.System.NOTIFICATION_SOUND,
+            uri.toString()
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
 }
 
 enum class TestTemplate(
     val label: String,
-    val preview: String,
-    private val title: String,
-    private val content: String,
-    private val contentType: String,
-    private val url: String? = null
+    val title: String,
+    val content: String,
+    val contentType: String,
+    val url: String? = null
 ) {
     TEXT(
         label = "文本",
-        preview = "标题: 测试推送\n内容: 这是一条普通文本消息，来自 InfoPush 试一试功能。",
         title = "测试推送",
         content = "这是一条普通文本消息，来自 InfoPush 试一试功能。",
         contentType = "text"
     ),
     MARKDOWN(
         label = "Markdown",
-        preview = "标题: Markdown 测试\n内容: # Hello\n**粗体** _斜体_ `代码`\n- 列表项 1\n- 列表项 2",
         title = "Markdown 测试",
         content = "# Hello InfoPush\n\n**粗体文本** 和 _斜体文本_ 以及 `内联代码`\n\n- 列表项 1\n- 列表项 2\n\n> 这是一条引用",
         contentType = "markdown"
     ),
     URL(
         label = "链接",
-        preview = "标题: 带链接的消息\n内容: 点击查看详情\nURL: https://github.com",
         title = "带链接的消息",
         content = "点击通知可以打开指定网址，这是 InfoPush 的链接推送功能演示。",
         contentType = "text",
@@ -462,4 +635,5 @@ enum class TestTemplate(
         content_type = contentType,
         url = url
     )
+
 }

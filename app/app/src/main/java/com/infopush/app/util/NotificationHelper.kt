@@ -1,15 +1,13 @@
 package com.infopush.app.util
 
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
 import android.media.RingtoneManager
-import android.net.Uri
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.core.net.toUri
 import com.infopush.app.data.repository.SettingsRepository
 import com.infopush.app.InfoPushApp
 import com.infopush.app.MainActivity
@@ -41,25 +39,44 @@ object NotificationHelper {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                val soundUri = if (soundUriStr == "default") {
-                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                } else {
-                    soundUriStr.toUri()
-                }
+                // 总是使用系统默认通知声音
+                val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
-                Log.d(TAG, "Notification sound: $soundUriStr")
+                Log.d(TAG, "Notification sound setting: '$soundUriStr'")
+                Log.d(TAG, "Original sound URI: $soundUriStr")
+                Log.d(TAG, "Converted sound URI: $soundUri")
 
-                val builder = NotificationCompat.Builder(context, InfoPushApp.CHANNEL_PUSH)
-                    .setSmallIcon(android.R.drawable.ic_dialog_info)
-                    .setContentTitle(message.title)
-                    .setContentText(message.content.take(100))
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setAutoCancel(true)
-                    .setContentIntent(pendingIntent)
-                    .setVibrate(longArrayOf(0, 300, 200, 300))
+                // 获取通知管理器
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-                // 更新通知通道的声音设置
-                updateNotificationChannelSound(context, soundUri)
+                // 获取或创建通知通道
+                val channel = manager.getNotificationChannel(InfoPushApp.CHANNEL_PUSH)
+              if (channel == null) {
+                  // 如果通道不存在，创建新通道
+                  val newChannel = NotificationChannel(
+                      InfoPushApp.CHANNEL_PUSH,
+                      "消息推送",
+                      NotificationManager.IMPORTANCE_HIGH
+                  ).apply {
+                      description = "接收推送消息通知"
+                      enableVibration(true)
+                      vibrationPattern = longArrayOf(0, 300, 200, 300)
+                  }
+                  manager.createNotificationChannel(newChannel)
+              }
+
+              val builder = NotificationCompat.Builder(context, InfoPushApp.CHANNEL_PUSH)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(message.title)
+                .setContentText(message.content.take(100))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setVibrate(longArrayOf(0, 300, 200, 300))
+                .setSound(soundUri)
+                .setDefaults(NotificationCompat.DEFAULT_SOUND or NotificationCompat.DEFAULT_VIBRATE)
+
+            Log.d(TAG, "Notification built with sound: $soundUri")
 
                 // 如果有 URL，添加打开链接的 action
                 if (!message.url.isNullOrBlank()) {
@@ -75,22 +92,9 @@ object NotificationHelper {
                     )
                 }
 
-                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(notificationId.getAndIncrement(), builder.build())
             }
         }
     }
 
-    private fun updateNotificationChannelSound(context: Context, soundUri: Uri) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = manager.getNotificationChannel(InfoPushApp.CHANNEL_PUSH)
-        channel?.let {
-            it.setSound(soundUri, AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build())
-            manager.createNotificationChannel(it)
-            Log.d(TAG, "Updated notification channel sound")
-        }
-    }
-}
+  }

@@ -3,6 +3,8 @@ package com.infopush.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 
 class InfoPushApp : Application() {
     companion object {
@@ -16,16 +18,36 @@ class InfoPushApp : Application() {
     }
 
     private fun createNotificationChannels() {
-        val pushChannel = NotificationChannel(
-            CHANNEL_PUSH,
-            "消息推送",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "接收推送消息通知"
-            enableVibration(true)
-            vibrationPattern = longArrayOf(0, 300, 200, 300)
+        val manager = getSystemService(NotificationManager::class.java)
+
+        // 获取或创建推送消息通道
+        val pushChannel = manager.getNotificationChannel(CHANNEL_PUSH)
+        if (pushChannel == null) {
+            // 如果通道不存在，创建新通道
+            val newChannel = NotificationChannel(
+                CHANNEL_PUSH,
+                "消息推送",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "接收推送消息通知"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 300, 200, 300)
+                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build())
+            }
+            manager.createNotificationChannel(newChannel)
+        } else {
+            // 如果通道已存在，更新声音设置
+            pushChannel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build())
+            manager.createNotificationChannel(pushChannel)
         }
 
+        // 创建服务通道
         val serviceChannel = NotificationChannel(
             CHANNEL_SERVICE,
             "推送服务",
@@ -33,9 +55,6 @@ class InfoPushApp : Application() {
         ).apply {
             description = "保持推送服务运行"
         }
-
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(pushChannel)
         manager.createNotificationChannel(serviceChannel)
     }
 }

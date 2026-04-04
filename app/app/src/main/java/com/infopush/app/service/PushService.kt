@@ -36,8 +36,10 @@ class PushService : Service() {
     companion object {
         private const val TAG = "PushService"
         private const val NOTIFICATION_ID = 1
-        const val ACTION_START = "com.infopush.START"
         const val ACTION_STOP = "com.infopush.STOP"
+
+        private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+        private val wsMessageAdapter = moshi.adapter(WsMessage::class.java)
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -45,9 +47,6 @@ class PushService : Service() {
     private var reconnectJob: Job? = null
     private var reconnectDelay = 1000L // ms
     private val maxReconnectDelay = 60000L
-
-    private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
-    private val wsMessageAdapter = moshi.adapter(WsMessage::class.java)
 
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -94,34 +93,34 @@ class PushService : Service() {
         val request = Request.Builder().url(wsUrl).build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(ws: WebSocket, response: Response) {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.i(TAG, "WebSocket connected")
                 reconnectDelay = 1000L // reset
             }
 
-            override fun onMessage(ws: WebSocket, text: String) {
+            override fun onMessage(webSocket: WebSocket, text: String) {
                 scope.launch {
                     handleMessage(text)
                 }
             }
 
-            override fun onClosing(ws: WebSocket, code: Int, reason: String) {
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 Log.i(TAG, "WebSocket closing: $code $reason")
-                ws.close(1000, null)
+                webSocket.close(1000, null)
                 if (code == 4001) {
                     reconnectJob?.cancel() // invalid token — do not reconnect
                 }
             }
 
-            override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.i(TAG, "WebSocket closed: $code $reason")
                 if (code != 4001) { // 4001 = invalid token, don't reconnect
                     scheduleReconnect()
                 }
             }
 
-            override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                Log.e(TAG, "WebSocket failure: ${t.message}")
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                Log.e(TAG, "WebSocket failure: ${t.message}", t)
                 scheduleReconnect()
             }
         })
@@ -155,7 +154,7 @@ class PushService : Service() {
     private fun scheduleReconnect() {
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
-            Log.i(TAG, "Reconnecting in ${reconnectDelay}ms...")
+            Log.w(TAG, "Attempting to reconnect in ${reconnectDelay}ms...")
             delay(reconnectDelay)
             reconnectDelay = (reconnectDelay * 2).coerceAtMost(maxReconnectDelay)
             connect()

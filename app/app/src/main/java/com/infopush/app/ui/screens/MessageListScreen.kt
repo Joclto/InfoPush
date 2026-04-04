@@ -50,17 +50,20 @@ import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import android.util.Log
-import android.widget.Toast
 import com.infopush.app.data.model.MessageEntity
 import com.infopush.app.data.repository.MessageRepository
 import com.infopush.app.data.repository.SettingsRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private fun showShortToast(context: android.content.Context, message: String) {
+    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+}
+
 private sealed class SyncStatus {
-    data object Idle : SyncStatus()
-    data object Loading : SyncStatus()
-    data object Success : SyncStatus()
+    object Idle : SyncStatus()
+    object Loading : SyncStatus()
+    object Success : SyncStatus()
     data class Error(val message: String) : SyncStatus()
 }
 
@@ -85,7 +88,7 @@ fun MessageListScreen(
         } catch (e: Exception) {
             syncStatus = SyncStatus.Error(e.message ?: "未知错误")
         }
-        delay(3000)
+        delay(2000)
         syncStatus = SyncStatus.Idle
     }
 
@@ -110,10 +113,10 @@ fun MessageListScreen(
                             try {
                                 Log.d("MessageListScreen", "Marking all as read")
                                 messageRepo.markAllAsRead(token)
-                                Toast.makeText(context, "全部已读", Toast.LENGTH_SHORT).show()
+                                showShortToast(context, "全部已读")
                             } catch (e: Exception) {
                                 Log.e("MessageListScreen", "Mark all as read failed", e)
-                                Toast.makeText(context, "标记失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                                showShortToast(context, "标记失败: ${e.message}")
                             }
                         }
                     }) {
@@ -282,7 +285,9 @@ private fun MessageCard(message: MessageEntity, onClick: () -> Unit) {
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = message.createdAt.take(19).replace("T", " "),
+                text = message.createdAt.take(19).let { dateStr ->
+                        if (dateStr.length >= 19) dateStr.replace("T", " ") else dateStr
+                    },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )
