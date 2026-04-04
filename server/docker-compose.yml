@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: infopush
+      POSTGRES_USER: infopush
+      POSTGRES_PASSWORD: infopush123
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  api:
+    build: .
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql+asyncpg://infopush:infopush123@db:5432/infopush
+      SECRET_KEY: ${SECRET_KEY:-change-this-to-a-random-string}
+    ports:
+      - "8000:8000"
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+
+volumes:
+  pgdata:
