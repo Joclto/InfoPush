@@ -43,11 +43,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
+import android.util.Log
+import android.widget.Toast
 import com.infopush.app.data.model.MessageEntity
 import com.infopush.app.data.repository.MessageRepository
 import com.infopush.app.data.repository.SettingsRepository
@@ -69,6 +72,7 @@ fun MessageListScreen(
     onMessageClick: (String) -> Unit,
     onSettingsClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val lazyMessages = messageRepo.getPagedMessages().collectAsLazyPagingItems()
     val scope = rememberCoroutineScope()
     var syncStatus by remember { mutableStateOf<SyncStatus>(SyncStatus.Idle) }
@@ -103,7 +107,14 @@ fun MessageListScreen(
                     IconButton(onClick = {
                         scope.launch {
                             val token = settingsRepo.getAccessToken() ?: return@launch
-                            try { messageRepo.markAllAsRead(token) } catch (_: Exception) { }
+                            try {
+                                Log.d("MessageListScreen", "Marking all as read")
+                                messageRepo.markAllAsRead(token)
+                                Toast.makeText(context, "全部已读", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Log.e("MessageListScreen", "Mark all as read failed", e)
+                                Toast.makeText(context, "标记失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }) {
                         Icon(Icons.Default.DoneAll, contentDescription = "全部已读")

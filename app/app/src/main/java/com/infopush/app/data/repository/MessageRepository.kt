@@ -8,6 +8,7 @@ import com.infopush.app.data.api.ApiClient
 import com.infopush.app.data.db.AppDatabase
 import com.infopush.app.data.model.MessageEntity
 import com.infopush.app.data.model.toEntity
+import android.util.Log
 import kotlinx.coroutines.flow.Flow
 
 class MessageRepository(context: Context) {
@@ -29,8 +30,11 @@ class MessageRepository(context: Context) {
         dao.markAsRead(id)
         if (accessToken != null) {
             try {
+                Log.d("MessageRepository", "Marking message $id as read on server")
                 ApiClient.getApi().markRead("Bearer $accessToken", id)
+                Log.d("MessageRepository", "Mark message $id as read on server success")
             } catch (e: Exception) {
+                Log.e("MessageRepository", "Mark message $id as read on server failed", e)
                 // 本地已更新，服务端同步失败不影响用户体验
             }
         }
@@ -40,8 +44,11 @@ class MessageRepository(context: Context) {
         dao.markAllAsRead()
         if (accessToken != null) {
             try {
+                Log.d("MessageRepository", "Marking all as read on server")
                 ApiClient.getApi().markAllRead("Bearer $accessToken")
+                Log.d("MessageRepository", "Mark all as read on server success")
             } catch (e: Exception) {
+                Log.e("MessageRepository", "Mark all as read on server failed", e)
                 // 本地已更新，服务端同步失败不影响用户体验
             }
         }
