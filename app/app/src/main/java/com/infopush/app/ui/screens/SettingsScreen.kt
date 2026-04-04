@@ -4,10 +4,12 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -48,6 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Notifications
 import com.infopush.app.data.api.ApiClient
 import com.infopush.app.data.model.PushRequest
 import com.infopush.app.data.repository.MessageRepository
@@ -69,6 +74,35 @@ fun SettingsScreen(
     val serverUrl by settingsRepo.serverUrl.collectAsState(initial = "")
     val pushToken by settingsRepo.pushToken.collectAsState(initial = null)
     val username by settingsRepo.username.collectAsState(initial = null)
+    val notificationSound by settingsRepo.notificationSound.collectAsState(initial = "default")
+
+    // 获取声音名称
+    fun getSoundName(soundUriStr: String): String {
+        return if (soundUriStr == "default") {
+            "系统默认"
+        } else {
+            try {
+                val ringtone = RingtoneManager.getRingtone(context, soundUriStr.toUri())
+                ringtone?.getTitle(context) ?: "未知声音"
+            } catch (_: Exception) {
+                "未知声音"
+            }
+        }
+    }
+
+    // 声音选择器 Launcher
+    val soundPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        @Suppress("DEPRECATION")
+        val uri: Uri? = result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        uri?.let {
+            scope.launch {
+                settingsRepo.setNotificationSound(uri.toString())
+                Toast.makeText(context, "提示音已设置", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // 试一试状态
     var selectedTemplate by remember { mutableStateOf(TestTemplate.TEXT) }
@@ -190,11 +224,77 @@ fun SettingsScreen(
                     } else {
                         OutlinedButton(onClick = {
                             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = Uri.parse("package:${context.packageName}")
+                                data = "package:${context.packageName}".toUri()
                             }
                             context.startActivity(intent)
                         }) {
                             Text("关闭电池优化")
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 提示音设置
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("提示音设置", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "选择接收消息时的提示音",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "当前提示音: ${getSoundName(notificationSound)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        OutlinedButton(onClick = {
+                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "选择提示音")
+                                putExtra(
+                                    RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                                    if (notificationSound == "default") null else notificationSound.toUri()
+                                )
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                            }
+                            soundPickerLauncher.launch(intent)
+                        }) {
+                            Icon(Icons.Default.Notifications, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("更改")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 播放当前声音按钮
+                    if (notificationSound != "default") {
+                        Button(
+                            onClick = {
+                                try {
+                                    val ringtone = RingtoneManager.getRingtone(context, notificationSound.toUri())
+                                    ringtone?.play()
+                                } catch (_: Exception) {
+                                    Toast.makeText(context, "无法播放声音", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("试听当前提示音")
                         }
                     }
                 }
@@ -280,7 +380,7 @@ fun SettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                             } else {
-                                Icon(Icons.Default.Send, contentDescription = null)
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                                 Spacer(modifier = Modifier.width(4.dp))
                             }
                             Text("发送测试")

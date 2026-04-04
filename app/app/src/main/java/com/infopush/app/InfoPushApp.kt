@@ -3,7 +3,6 @@ package com.infopush.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.os.Build
 
 class InfoPushApp : Application() {
     companion object {
@@ -23,6 +22,8 @@ class InfoPushApp : Application() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "接收推送消息通知"
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 300, 200, 300)
         }
 
         val serviceChannel = NotificationChannel(

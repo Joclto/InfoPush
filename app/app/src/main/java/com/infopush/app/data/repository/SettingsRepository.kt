@@ -19,6 +19,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val KEY_PUSH_TOKEN = stringPreferencesKey("push_token")
         private val KEY_USERNAME = stringPreferencesKey("username")
+        private val KEY_NOTIFICATION_SOUND = stringPreferencesKey("notification_sound")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data.map { prefs ->
@@ -35,6 +36,10 @@ class SettingsRepository(private val context: Context) {
 
     val username: Flow<String?> = context.dataStore.data.map { prefs ->
         prefs[KEY_USERNAME]
+    }
+
+    val notificationSound: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_NOTIFICATION_SOUND] ?: "default"
     }
 
     suspend fun getServerUrl(): String = serverUrl.first()
@@ -59,6 +64,10 @@ class SettingsRepository(private val context: Context) {
             prefs.remove(KEY_PUSH_TOKEN)
             prefs.remove(KEY_USERNAME)
         }
+    }
+
+    suspend fun setNotificationSound(soundUri: String) {
+        context.dataStore.edit { it[KEY_NOTIFICATION_SOUND] = soundUri }
     }
 
     suspend fun isLoggedIn(): Boolean = getAccessToken() != null
