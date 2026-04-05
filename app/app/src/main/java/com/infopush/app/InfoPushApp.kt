@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.util.Log
 import com.infopush.app.data.repository.SettingsRepository
 import com.infopush.app.service.PushService
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +17,7 @@ class InfoPushApp : Application() {
     companion object {
         const val CHANNEL_PUSH = "push_messages"
         const val CHANNEL_SERVICE = "push_service"
+        private const val TAG = "InfoPushApp"
     }
 
     override fun onCreate() {
@@ -26,10 +28,19 @@ class InfoPushApp : Application() {
 
     private fun startPushServiceIfLoggedIn() {
         CoroutineScope(Dispatchers.IO).launch {
-            val settingsRepo = SettingsRepository(this@InfoPushApp)
-            if (settingsRepo.isLoggedIn()) {
-                val intent = Intent(this@InfoPushApp, PushService::class.java)
-                startForegroundService(intent)
+            try {
+                val settingsRepo = SettingsRepository(this@InfoPushApp)
+                val isLoggedIn = settingsRepo.isLoggedIn()
+                Log.d(TAG, "Checking login status: $isLoggedIn")
+                if (isLoggedIn) {
+                    Log.d(TAG, "User logged in, starting PushService")
+                    val intent = Intent(this@InfoPushApp, PushService::class.java)
+                    startForegroundService(intent)
+                } else {
+                    Log.d(TAG, "User not logged in, skipping PushService start")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting PushService: ${e.message}", e)
             }
         }
     }

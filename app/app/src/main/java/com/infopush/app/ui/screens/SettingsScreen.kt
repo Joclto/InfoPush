@@ -187,12 +187,6 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("后台保活", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "关闭电池优化可以防止系统杀掉推送服务",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
 
                     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
                     val isIgnoring = pm.isIgnoringBatteryOptimizations(context.packageName)
@@ -200,6 +194,12 @@ fun SettingsScreen(
                     if (isIgnoring) {
                         Text("已关闭电池优化", color = MaterialTheme.colorScheme.primary)
                     } else {
+                        Text(
+                            "关闭电池优化可以防止系统杀掉推送服务",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         OutlinedButton(onClick = {
                             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                                 data = "package:${context.packageName}".toUri()
@@ -208,6 +208,31 @@ fun SettingsScreen(
                         }) {
                             Text("关闭电池优化")
                         }
+                    }
+
+                    // OPPO/一加等国产手机额外设置提示
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "部分手机（如OPPO/一加/小米/华为）需要额外设置：",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "• 设置 → 应用管理 → 找到本应用 → 允许自启动\n" +
+                        "• 设置 → 应用管理 → 找到本应用 → 允许后台活动\n" +
+                        "• 设置 → 电池 → 找到本应用 → 允许后台运行",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(onClick = {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = "package:${context.packageName}".toUri()
+                        }
+                        context.startActivity(intent)
+                    }) {
+                        Text("打开应用设置")
                     }
                 }
             }

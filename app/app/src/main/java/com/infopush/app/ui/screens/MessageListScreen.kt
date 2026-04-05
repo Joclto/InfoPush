@@ -1,5 +1,6 @@
 package com.infopush.app.ui.screens
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,10 +50,10 @@ import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
-import android.util.Log
 import com.infopush.app.data.model.MessageEntity
 import com.infopush.app.data.repository.MessageRepository
 import com.infopush.app.data.repository.SettingsRepository
+import com.infopush.app.util.MessageEventManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -100,6 +101,15 @@ fun MessageListScreen(
     LaunchedEffect(Unit) {
         val token = settingsRepo.getAccessToken() ?: return@LaunchedEffect
         doSync(token)
+    }
+
+    // 监听新消息事件，自动刷新列表
+    LaunchedEffect(Unit) {
+        Log.d("MessageListScreen", "Starting to listen for new message events")
+        MessageEventManager.newMessageEvent.collect {
+            Log.d("MessageListScreen", "New message event received, refreshing list")
+            lazyMessages.refresh()
+        }
     }
 
     Scaffold(
