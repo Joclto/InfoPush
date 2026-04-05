@@ -3,8 +3,14 @@ package com.infopush.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import com.infopush.app.data.repository.SettingsRepository
+import com.infopush.app.service.PushService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class InfoPushApp : Application() {
     companion object {
@@ -15,6 +21,17 @@ class InfoPushApp : Application() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        startPushServiceIfLoggedIn()
+    }
+
+    private fun startPushServiceIfLoggedIn() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val settingsRepo = SettingsRepository(this@InfoPushApp)
+            if (settingsRepo.isLoggedIn()) {
+                val intent = Intent(this@InfoPushApp, PushService::class.java)
+                startForegroundService(intent)
+            }
+        }
     }
 
     private fun createNotificationChannels() {

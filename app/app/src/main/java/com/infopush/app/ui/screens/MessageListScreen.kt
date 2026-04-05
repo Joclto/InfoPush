@@ -55,6 +55,10 @@ import com.infopush.app.data.repository.MessageRepository
 import com.infopush.app.data.repository.SettingsRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 private fun showShortToast(context: android.content.Context, message: String) {
     android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
@@ -285,12 +289,21 @@ private fun MessageCard(message: MessageEntity, onClick: () -> Unit) {
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = message.createdAt.take(19).let { dateStr ->
-                        if (dateStr.length >= 19) dateStr.replace("T", " ") else dateStr
-                    },
+                text = formatDateTime(message.createdAt),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )
         }
+    }
+}
+
+private fun formatDateTime(isoString: String): String {
+    return try {
+        val instant = Instant.parse(isoString)
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+            .withZone(ZoneId.systemDefault())
+        formatter.format(instant)
+    } catch (_: DateTimeParseException) {
+        isoString.take(19).replace("T", " ")
     }
 }

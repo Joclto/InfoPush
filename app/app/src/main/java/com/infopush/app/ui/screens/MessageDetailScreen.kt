@@ -35,6 +35,10 @@ import com.infopush.app.data.model.MessageEntity
 import com.infopush.app.data.repository.MessageRepository
 import com.infopush.app.data.repository.SettingsRepository
 import com.infopush.app.util.DeepLinkHelper
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,9 +131,7 @@ fun MessageDetailScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = msg.createdAt.take(19).let { dateStr ->
-                            if (dateStr.length >= 19) dateStr.replace("T", " ") else dateStr
-                        },
+                        text = formatDateTime(msg.createdAt),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -164,5 +166,16 @@ fun MessageDetailScreen(
                 }
             }
         }
+    }
+}
+
+private fun formatDateTime(isoString: String): String {
+    return try {
+        val instant = Instant.parse(isoString)
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+            .withZone(ZoneId.systemDefault())
+        formatter.format(instant)
+    } catch (_: DateTimeParseException) {
+        isoString.take(19).replace("T", " ")
     }
 }
