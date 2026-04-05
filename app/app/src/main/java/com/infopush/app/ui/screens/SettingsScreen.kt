@@ -1,16 +1,12 @@
 package com.infopush.app.ui.screens
 
-import android.content.ClipboardManager
 import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.media.RingtoneManager
-import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
-import androidx.core.net.toUri
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,14 +15,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,15 +31,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,7 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.net.toUri
 import com.infopush.app.data.api.ApiClient
 import com.infopush.app.data.model.PushRequest
 import com.infopush.app.data.repository.MessageRepository
@@ -83,88 +76,6 @@ fun SettingsScreen(
     val serverUrl by settingsRepo.serverUrl.collectAsState(initial = "")
     val pushToken by settingsRepo.pushToken.collectAsState(initial = null)
     val username by settingsRepo.username.collectAsState(initial = null)
-    val notificationSound by settingsRepo.notificationSound.collectAsState(initial = "default")
-    var showPermissionGuide by remember { mutableStateOf(false) } // 控制权限引导对话框显示
-
-    // 获取声音名称
-    fun getSoundName(soundUriStr: String): String {
-        return if (soundUriStr == "default") {
-            "系统默认"
-        } else {
-            try {
-                val ringtone = RingtoneManager.getRingtone(context, soundUriStr.toUri())
-                ringtone?.getTitle(context) ?: "未知声音"
-            } catch (_: Exception) {
-                "未知声音"
-            }
-        }
-    }
-
-    // 检查是否有 WRITE_SETTINGS 权限
-    fun hasWriteSettingsPermission(context: Context): Boolean {
-        return Settings.System.canWrite(context)
-    }
-
-    
-    // 应用通知声音设置
-    fun applyNotificationSound(context: Context) {
-        if (notificationSound == "default") {
-            setSystemDefaultNotificationSound(context)
-            showToast(context, "已设置为默认提示音")
-        } else {
-            try {
-                val uri = notificationSound.toUri()
-                setSystemNotificationSound(context, uri)
-                showToast(context, "提示音已设置")
-            } catch (_: Exception) {
-                showToast(context, "无法设置声音")
-            }
-        }
-    }
-
-    // 处理权限引导返回结果
-    val settingsResultLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { _ ->
-        // 用户从设置页面返回后，检查权限状态
-        if (hasWriteSettingsPermission(context)) {
-            applyNotificationSound(context)
-        }
-    }
-
-    // 打开系统设置页面（用于 WRITE_SETTINGS 权限）
-    fun openSystemSettingsForPermission(context: Context) {
-        val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-            data = "package:${context.packageName}".toUri()
-        }
-        settingsResultLauncher.launch(intent)
-    }
-
-
-    // 声音选择器 Launcher
-    val soundPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        @Suppress("DEPRECATION")
-        val uri: Uri? = result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-        if (uri == null) {
-            // 用户选择了"无"或"默认"
-            scope.launch {
-                settingsRepo.setNotificationSound("default")
-                // 设置系统默认声音
-                setSystemDefaultNotificationSound(context)
-                showToast(context, "已设置为默认提示音")
-            }
-        } else {
-            // 用户选择了自定义声音
-            scope.launch {
-                settingsRepo.setNotificationSound(uri.toString())
-                // 设置系统声音
-                setSystemNotificationSound(context, uri)
-                showToast(context, "提示音已设置")
-            }
-        }
-    }
 
     // 试一试状态
     var selectedTemplate by remember { mutableStateOf(TestTemplate.TEXT) }
@@ -312,63 +223,21 @@ fun SettingsScreen(
                     Text("提示音设置", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "选择接收消息时的提示音",
+                        "Android 8.0+ 需要在系统设置中更改通知声音",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "当前提示音: ${getSoundName(notificationSound)}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        OutlinedButton(onClick = {
-                            if (hasWriteSettingsPermission(context)) {
-                                // 已有权限，直接打开声音选择器
-                                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "选择提示音")
-                                    putExtra(
-                                        RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
-                                        if (notificationSound == "default") null else notificationSound.toUri()
-                                    )
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                }
-                                soundPickerLauncher.launch(intent)
-                            } else {
-                                // 没有权限，显示引导对话框
-                                showPermissionGuide = true
-                            }
-                        }) {
-                            Icon(Icons.Default.Notifications, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("更改")
+                    OutlinedButton(onClick = {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // 播放当前声音按钮
-                    if (notificationSound != "default") {
-                        Button(
-                            onClick = {
-                                try {
-                                    val ringtone = RingtoneManager.getRingtone(context, notificationSound.toUri())
-                                    ringtone?.play()
-                                } catch (_: Exception) {
-                                    showToast(context, "无法播放声音")
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("试听当前提示音")
-                        }
+                        context.startActivity(intent)
+                    }) {
+                        Icon(Icons.Default.Notifications, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("打开系统通知设置")
                     }
                 }
             }
@@ -527,78 +396,6 @@ fun SettingsScreen(
                 Text("退出登录")
             }
         }
-    }
-
-    // 权限引导对话框
-    if (showPermissionGuide) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("需要系统权限")
-                }
-            },
-            text = {
-                Text(
-                    "InfoPush 需要系统权限来设置通知声音。\n\n" +
-                    "请点击\"去设置\"，然后在应用信息页面中找到\n" +
-                    "特殊访问权限 → 修改系统设置，\n" +
-                    "并开启此权限。\n\n" +
-                    "开启后请返回应用继续设置。"
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        openSystemSettingsForPermission(context)
-                    }
-                ) {
-                    Text("\u53BB\u8BBE\u7F6E")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { }
-                ) {
-                    Text("取消")
-                }
-            }
-        )
-    }
-}
-
-// 常量定义
-private const val DEFAULT_NOTIFICATION_SOUND = "content://settings/system/notification_sound"
-
-// 设置系统默认通知声音
-private fun setSystemDefaultNotificationSound(context: Context) {
-    try {
-        Settings.System.putString(
-            context.contentResolver,
-            Settings.System.NOTIFICATION_SOUND,
-            DEFAULT_NOTIFICATION_SOUND
-        )
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-}
-
-// 设置系统通知声音
-private fun setSystemNotificationSound(context: Context, uri: Uri) {
-    try {
-        Settings.System.putString(
-            context.contentResolver,
-            Settings.System.NOTIFICATION_SOUND,
-            uri.toString()
-        )
-    } catch (e: Exception) {
-        e.printStackTrace()
     }
 }
 
