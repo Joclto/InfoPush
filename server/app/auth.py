@@ -1,6 +1,5 @@
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
 
 import bcrypt
 from jose import JWTError, jwt
@@ -31,8 +30,7 @@ def generate_push_token() -> str:
 
 
 def create_access_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
-    payload = {"sub": user_id, "exp": expire}
+    payload = {"sub": user_id}
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
 
 

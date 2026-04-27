@@ -3,7 +3,10 @@ package com.infopush.app.service
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -43,6 +46,7 @@ class PushService : Service() {
         private const val TAG = "PushService"
         private const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "com.infopush.STOP"
+        private const val KEEP_ALIVE_INTERVAL = 3 * 60 * 1000L // 3分钟
 
         private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
         private val wsMessageAdapter = moshi.adapter(WsMessage::class.java)
@@ -56,26 +60,60 @@ class PushService : Service() {
     private var isConnecting = false
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var keepAliveJob: Job? = null
 
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
+        .pingInterval(15, TimeUnit.SECONDS)
         .build()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-override fun onCreate() {
+    override fun onCreate() {
         super.onCreate()
         startForeground(NOTIFICATION_ID, createServiceNotification())
         registerNetworkCallback()
         acquireWakeLock()
+        startKeepAlive()
+        Log.d(TAG, "PushService created")
     }
 
     override fun onDestroy() {
+        stopKeepAlive()
         unregisterNetworkCallback()
         releaseWakeLock()
         disconnect()
         scope.cancel()
         super.onDestroy()
+        Log.d(TAG, "PushService destroyed")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand: action=${intent?.action}, webSocket=$webSocket, isConnecting=$isConnecting")
+        when (intent?.action) {
+            ACTION_STOP -> {
+                stopKeepAlive()
+                disconnect()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return START_NOT_STICKY
+            }
+        }
+        if (webSocket == null && !isConnecting) {
+            scope.launch { connect() }
+        }
+        return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.w(TAG, "Task removed, restarting service")
+        val restartIntent = Intent(this, PushService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(restartIntent)
+        } else {
+            startService(restartIntent)
+        }
+        super.onTaskRemoved(rootIntent)
     }
 
     private fun acquireWakeLock() {
@@ -85,7 +123,7 @@ override fun onCreate() {
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "InfoPush::WebSocket"
             ).apply {
-                acquire(10 * 60 * 1000L) // 10分钟超时，会自动续期
+                acquire()
             }
             Log.d(TAG, "WakeLock acquired")
         } catch (e: Exception) {
@@ -103,12 +141,31 @@ override fun onCreate() {
         wakeLock = null
     }
 
+    private fun startKeepAlive() {
+        keepAliveJob?.cancel()
+        keepAliveJob = scope.launch {
+            while (true) {
+                delay(KEEP_ALIVE_INTERVAL)
+                if (webSocket == null && !isConnecting) {
+                    Log.d(TAG, "KeepAlive: WebSocket not connected, reconnecting...")
+                    connect()
+                }
+            }
+        }
+        Log.d(TAG, "KeepAlive started")
+    }
+
+    private fun stopKeepAlive() {
+        keepAliveJob?.cancel()
+        keepAliveJob = null
+    }
+
     private fun registerNetworkCallback() {
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-        
+
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 Log.d(TAG, "Network available: $network")
@@ -117,12 +174,12 @@ override fun onCreate() {
                     scope.launch { connect() }
                 }
             }
-            
+
             override fun onLost(network: Network) {
                 Log.d(TAG, "Network lost: $network")
             }
         }
-        
+
         cm.registerNetworkCallback(networkRequest, networkCallback!!)
         Log.d(TAG, "Network callback registered")
     }
@@ -136,29 +193,12 @@ override fun onCreate() {
         networkCallback = null
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand: action=${intent?.action}, webSocket=$webSocket, isConnecting=$isConnecting")
-        when (intent?.action) {
-            ACTION_STOP -> {
-                disconnect()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-                return START_NOT_STICKY
-            }
-        }
-        // 只在未连接且未正在连接时启动连接
-        if (webSocket == null && !isConnecting) {
-            scope.launch { connect() }
-        }
-        return START_STICKY
-    }
-
     private suspend fun connect() {
         if (isConnecting || webSocket != null) {
             Log.d(TAG, "Already connected or connecting, skip")
             return
         }
-        
+
         isConnecting = true
         try {
             val settings = SettingsRepository(applicationContext)
@@ -229,16 +269,13 @@ override fun onCreate() {
                     Log.d(TAG, "Processing message: id=${data.id}, title=${data.title}")
                     val entity = data.toEntity()
 
-                    // 存入本地数据库
                     val dao = AppDatabase.getInstance(applicationContext).messageDao()
                     dao.insertMessage(entity)
                     Log.d(TAG, "Message saved to database: ${entity.id}")
 
-                    // 通知UI刷新
                     MessageEventManager.notifyNewMessage()
                     Log.d(TAG, "New message event emitted")
 
-                    // 显示通知
                     NotificationHelper.showMessageNotification(applicationContext, entity)
                 }
             }
@@ -277,6 +314,7 @@ override fun onCreate() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
 }

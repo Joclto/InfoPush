@@ -4,10 +4,15 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
+import org.json.JSONArray
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +33,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -37,6 +43,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -78,9 +85,10 @@ fun SettingsScreen(
     val username by settingsRepo.username.collectAsState(initial = null)
 
     // 试一试状态
-    var selectedTemplate by remember { mutableStateOf(TestTemplate.TEXT) }
+    var selectedTemplate by remember { mutableStateOf(TestTemplate.URL) }
     var isSending by remember { mutableStateOf(false) }
     var sendResult by remember { mutableStateOf<String?>(null) }
+    var showChangelogDialog by remember { mutableStateOf(false) }
 
     // 可编辑的标题和内容
     var editTitle by remember { mutableStateOf(selectedTemplate.title) }
@@ -420,6 +428,145 @@ fun SettingsScreen(
             ) {
                 Text("退出登录")
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 版本信息
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            val versionName = packageInfo.versionName
+            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.versionCode
+            }
+
+            // 读取版本历史
+            val changelog = remember { loadChangelog(context) }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "InfoPush v$versionName ($versionCode)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "点击查看版本历史",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { showChangelogDialog = true }
+                )
+            }
+
+            // 版本历史对话框
+            if (showChangelogDialog) {
+                AlertDialog(
+                    onDismissRequest = { showChangelogDialog = false },
+                    title = { Text("版本历史") },
+                    text = {
+                        Column(
+                            modifier = Modifier.verticalScroll(rememberScrollState())
+                        ) {
+                            changelog.forEach { entry ->
+                                ChangelogEntry(
+                                    version = entry.version,
+                                    date = entry.date,
+                                    changes = entry.changes
+                                )
+                                if (entry != changelog.last()) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showChangelogDialog = false }) {
+                            Text("关闭")
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+// 版本历史数据类
+private data class ChangelogItem(
+    val version: String,
+    val date: String,
+    val changes: List<String>
+)
+
+// 从 assets 读取版本历史
+private fun loadChangelog(context: Context): List<ChangelogItem> {
+    return try {
+        val json = context.assets.open("changelog.json").bufferedReader().use { it.readText() }
+        val jsonArray = JSONArray(json)
+        (0 until jsonArray.length()).map { i ->
+            val obj = jsonArray.getJSONObject(i)
+            val changesArray = obj.getJSONArray("changes")
+            val changes = (0 until changesArray.length()).map { j ->
+                changesArray.getString(j)
+            }
+            ChangelogItem(
+                version = obj.getString("version"),
+                date = obj.getString("date"),
+                changes = changes
+            )
+        }
+    } catch (e: Exception) {
+        // 读取失败时返回默认数据
+        listOf(
+            ChangelogItem(
+                version = "1.0.0",
+                date = "2026-04-05",
+                changes = listOf("初始版本")
+            )
+        )
+    }
+}
+
+@Composable
+private fun ChangelogEntry(
+    version: String,
+    date: String,
+    changes: List<String>
+) {
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "v$version",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = date,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        changes.forEach { change ->
+            Row(
+                modifier = Modifier.padding(vertical = 2.dp)
+            ) {
+                Text(
+                    text = "• ",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = change,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }
@@ -446,8 +593,8 @@ enum class TestTemplate(
     URL(
         label = "链接",
         title = "带链接的消息",
-        content = "点击通知可以打开指定网址，这是 InfoPush 的链接推送功能演示。",
-        contentType = "text",
+        content = "点击通知可以打开指定网址。\n\n**这是 Markdown 格式内容：**\n- 支持列表\n- 支持**粗体**和_斜体_\n- 支持`代码`\n\n> 这是引用文本",
+        contentType = "markdown",
         url = "https://github.com"
     );
 

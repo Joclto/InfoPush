@@ -35,6 +35,7 @@ import com.infopush.app.data.model.MessageEntity
 import com.infopush.app.data.repository.MessageRepository
 import com.infopush.app.data.repository.SettingsRepository
 import com.infopush.app.util.DeepLinkHelper
+import dev.jeziellago.compose.markdowntext.MarkdownText
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -138,11 +139,18 @@ fun MessageDetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 内容
-                    Text(
-                        text = msg.content,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    // 内容 - 根据 contentType 渲染
+                    if (msg.contentType == "markdown") {
+                        MarkdownText(
+                            markdown = msg.content,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text(
+                            text = msg.content,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
 
                     // URL 跳转按钮
                     if (!msg.url.isNullOrBlank()) {

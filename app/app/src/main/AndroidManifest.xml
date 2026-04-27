@@ -12,7 +12,6 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
     <application
         android:name=".InfoPushApp"
@@ -33,21 +32,22 @@
             </intent-filter>
         </activity>
 
-        <!--
-    Foreground Service for real-time message push notifications
-    - dataSync: For synchronizing messages from server
-    - specialUse: For high-priority notifications that require immediate delivery
--->
-<service
+        <service
             android:name=".service.PushService"
             android:exported="false"
-            android:foregroundServiceType="dataSync|specialUse" />
+            android:foregroundServiceType="dataSync|specialUse"
+            android:stopWithTask="false" />
 
         <receiver
             android:name=".service.BootReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:enabled="true"
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.infopush.RESTART_SERVICE" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 
