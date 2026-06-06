@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InfoPush</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <!-- 登录页 -->
+    <div id="page-login" class="page active">
+      <div class="login-card">
+        <h1 class="login-title">InfoPush</h1>
+        <p class="login-subtitle">消息推送桌面客户端</p>
+        <div class="form-group">
+          <label for="input-server">服务器地址</label>
+          <input type="text" id="input-server" value="http://localhost:8000" placeholder="http://localhost:8000" />
+        </div>
+        <div class="form-group">
+          <label for="input-username">用户名</label>
+          <input type="text" id="input-username" placeholder="请输入用户名" />
+        </div>
+        <div class="form-group">
+          <label for="input-password">密码</label>
+          <input type="password" id="input-password" placeholder="请输入密码" />
+        </div>
+        <div class="login-buttons">
+          <button class="btn btn-primary" id="btn-login">登录</button>
+          <button class="btn btn-secondary" id="btn-register">注册</button>
+        </div>
+        <p id="login-msg" class="msg"></p>
+      </div>
+    </div>
+
+    <!-- 消息列表页 -->
+    <div id="page-messages" class="page">
+      <header class="topbar">
+        <span class="topbar-title">消息</span>
+        <div class="topbar-actions">
+          <span class="status-dot connected" id="ws-dot"></span>
+          <span class="status-text" id="ws-text">已连接</span>
+          <button class="btn-icon" id="btn-mark-all-read" title="全部已读">✓✓</button>
+          <button class="btn-icon" id="btn-refresh" title="刷新">↻</button>
+          <button class="btn-icon" id="btn-settings" title="设置">⚙</button>
+        </div>
+      </header>
+      <div id="message-list" class="message-list"></div>
+      <div id="empty-state" class="empty-state" style="display:none">
+        <p>📭 暂无消息</p>
+      </div>
+    </div>
+
+    <!-- 消息详情页 -->
+    <div id="page-detail" class="page">
+      <header class="topbar">
+        <button class="btn-icon" id="btn-back" title="返回">←</button>
+        <span class="topbar-title" id="detail-title">消息详情</span>
+        <div class="topbar-actions">
+          <button class="btn-icon" id="btn-mark-read" title="标记已读">✓</button>
+        </div>
+      </header>
+      <div class="detail-content">
+        <h2 id="detail-subject"></h2>
+        <p class="detail-time" id="detail-time"></p>
+        <div class="detail-body" id="detail-body"></div>
+        <a id="detail-url" class="detail-link" href="#" style="display:none" target="_blank">查看详情 →</a>
+      </div>
+    </div>
+
+    <!-- 设置页 -->
+    <div id="page-settings" class="page">
+      <header class="topbar">
+        <button class="btn-icon" id="btn-settings-back" title="返回">←</button>
+        <span class="topbar-title">设置</span>
+        <div class="topbar-actions"></div>
+      </header>
+      <div class="settings-content">
+        <div class="settings-item">
+          <span class="settings-label">用户名</span>
+          <span class="settings-value" id="settings-username"></span>
+        </div>
+        <div class="settings-item">
+          <span class="settings-label">Push Token</span>
+          <div class="settings-value-row">
+            <span class="settings-value settings-token" id="settings-token"></span>
+            <button class="btn-icon btn-copy" id="btn-copy-token" title="复制">📋</button>
+          </div>
+        </div>
+        <div class="settings-item">
+          <span class="settings-label">服务器地址</span>
+          <span class="settings-value" id="settings-server"></span>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="test-push-section">
+          <h3 class="test-push-title">试一试</h3>
+          <p class="test-push-desc">选择模板，向自己发送一条测试推送</p>
+          <div class="template-chips">
+            <button class="chip active" data-template="text">文本</button>
+            <button class="chip" data-template="markdown">Markdown</button>
+            <button class="chip" data-template="url">链接</button>
+          </div>
+          <div class="form-group">
+            <label for="test-title">标题</label>
+            <input type="text" id="test-title" value="测试推送" />
+          </div>
+          <div class="form-group">
+            <label for="test-content">内容</label>
+            <textarea id="test-content" rows="3">这是一条普通文本消息，来自 InfoPush 试一试功能。</textarea>
+          </div>
+          <div class="form-group" id="test-url-group" style="display:none">
+            <label for="test-url">链接（可选）</label>
+            <input type="text" id="test-url" value="https://github.com" />
+          </div>
+          <button class="btn btn-primary" id="btn-test-push" style="width:100%">发送</button>
+          <p id="test-push-msg" class="msg"></p>
+        </div>
+        <div class="settings-divider"></div>
+        <button class="btn btn-danger-full" id="btn-logout">退出登录</button>
+        <p class="settings-version">InfoPush Desktop v0.1.0</p>
+      </div>
+    </div>
+  </body>
+</html>

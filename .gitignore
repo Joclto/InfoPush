@@ -65,3 +65,6 @@ desktop.ini
 
 # ===== Claude Code =====
 .claude/
+
+# ===== OpenCode =====
+.omo/

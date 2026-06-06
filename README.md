@@ -1,13 +1,14 @@
 # InfoPush
 
-自建消息推送服务，支持通过 HTTP 接口向 Android 客户端实时推送通知。
+自建消息推送服务，支持通过 HTTP 接口向多端客户端实时推送通知。
 
 ## 项目结构
 
 ```
 InfoPush/
 ├── server/          # 后端服务（FastAPI + PostgreSQL）
-└── app/             # Android 客户端（Kotlin + Jetpack Compose）
+├── app/             # Android 客户端（Kotlin + Jetpack Compose）
+└── desktop/         # Windows 桌面客户端（Tauri v2 + Rust）
 ```
 
 ## 功能特性
@@ -57,6 +58,34 @@ python -m app.main
 ### Android 客户端
 
 使用 Android Studio 打开 `app/` 目录，修改服务器地址后编译安装即可。
+
+### Windows 桌面客户端
+
+```bash
+cd desktop
+
+# 安装前端依赖
+pnpm install
+
+# 开发模式
+pnpm tauri dev
+
+# 构建安装包
+pnpm tauri build
+```
+
+需要预先安装：[Rust](https://rustup.rs/)、Node.js 20+、pnpm、Visual Studio Build Tools（C++ 桌面开发工作负载）。
+
+桌面客户端功能：
+- 登录 / 注册，支持服务器地址记忆
+- 消息列表实时更新，已读 / 未读区分
+- 消息详情（text / markdown / html 渲染，XSS 防护）
+- 标记已读 / 全部已读
+- 试一试：三种模板（文本 / Markdown / 链接）自定义推送
+- 系统托盘常驻，关闭最小化到托盘
+- Windows Toast 通知
+- 自动登录，退出登录
+- Push Token 一键复制
 
 ## 推送 API
 
@@ -110,8 +139,8 @@ GET /push/{push_token}?title=标题&content=消息内容
 |------|------|------|
 | `GET` | `/api/messages` | 分页获取消息列表 |
 | `GET` | `/api/messages/{id}` | 获取单条消息 |
-| `POST` | `/api/messages/{id}/read` | 标记已读 |
-| `DELETE` | `/api/messages/{id}` | 删除消息 |
+| `PUT` | `/api/messages/{id}/read` | 标记已读 |
+| `PUT` | `/api/messages/read-all` | 全部标记已读 |
 
 所有消息接口需在 Header 中携带 `Authorization: Bearer {access_token}`。
 
@@ -151,6 +180,13 @@ ws://your-server/ws/{push_token}
 - Room 数据库
 - OkHttp / Retrofit
 - WebSocket 长连接
+
+**Windows 桌面**
+
+- Tauri v2（Rust + WebView2）
+- Rust（reqwest / tokio-tungstenite / serde）
+- TypeScript / HTML / CSS
+- marked + DOMPurify
 
 ## License
 
