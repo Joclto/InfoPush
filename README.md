@@ -2,7 +2,7 @@
 
 # InfoPush
 
-自建消息推送服务，支持通过 HTTP 接口向多端客户端实时推送通知。
+自建消息推送服务，通过 HTTP 接口推送，WebSocket 实时送达多端客户端。
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?logo=kotlin)
