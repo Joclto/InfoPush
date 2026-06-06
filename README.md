@@ -1,4 +1,8 @@
+<div align="center">
+
 # InfoPush
+
+自建消息推送服务，支持通过 HTTP 接口向多端客户端实时推送通知。
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?logo=kotlin)
@@ -6,7 +10,9 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-自建消息推送服务，支持通过 HTTP 接口向多端客户端实时推送通知。
+</div>
+
+---
 
 ## 项目结构
 
