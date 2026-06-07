@@ -9,6 +9,7 @@
 ![Tauri](https://img.shields.io/badge/Tauri-v2-blue?logo=tauri)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql)
 ![License](https://img.shields.io/badge/License-MIT-green)
+![Release](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=githubactions)
 
 </div>
 
@@ -44,6 +45,24 @@ InfoPush/
 - Docker Compose 一键部署（FastAPI + PostgreSQL + Nginx）
 
 ## 快速开始
+
+### 使用预构建镜像（推荐）
+
+每次发布版本会自动构建 Docker 镜像并推送到 GitHub Container Registry：
+
+```bash
+# 拉取最新版本
+docker pull ghcr.io/joclto/infopush:latest
+
+# 或指定版本
+docker pull ghcr.io/joclto/infopush:0.1.0
+```
+
+> 镜像仅包含 API 服务，仍需配合 PostgreSQL 使用。可参考下方 `docker-compose.yml` 部署。
+
+### Windows 桌面客户端
+
+前往 [Releases 页面](https://github.com/Joclto/InfoPush/releases) 下载最新安装包。
 
 ### 后端部署（Docker Compose）
 

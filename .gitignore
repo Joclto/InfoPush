@@ -68,3 +68,5 @@ desktop.ini
 
 # ===== OpenCode =====
 .omo/
+# Keystore signing files (keep local only)  
+app/keystore/  
