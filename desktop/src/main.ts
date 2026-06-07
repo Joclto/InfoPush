@@ -9,6 +9,9 @@ import DOMPurify from "dompurify";
 type PageName = "login" | "messages" | "detail" | "settings";
 
 let currentMessageId = "";
+let currentPage = 1;
+let totalPages = 1;
+let isLoadingMore = false;
 
 function stripAnsi(text: string): string {
     return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
@@ -102,14 +105,25 @@ function openDetail(msg: MessageData) {
     navigate("detail");
 }
 
-async function loadMessages() {
+async function loadMessages(loadMore = false) {
     const list = document.getElementById("message-list")!;
     const emptyState = document.getElementById("empty-state")!;
 
-    // 显示加载状态
-    list.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
-    list.style.display = "block";
-    emptyState.style.display = "none";
+    if (!loadMore) {
+        currentPage = 1;
+        totalPages = 1;
+        list.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+        list.style.display = "block";
+        emptyState.style.display = "none";
+    } else {
+        if (isLoadingMore || currentPage >= totalPages) return;
+        isLoadingMore = true;
+        currentPage++;
+        const loader = document.createElement("div");
+        loader.className = "loading-more";
+        loader.innerHTML = '<div class="spinner"></div>';
+        list.appendChild(loader);
+    }
 
     try {
         const resp = await invoke<{
@@ -117,11 +131,17 @@ async function loadMessages() {
             page: number;
             page_size: number;
             messages: MessageData[];
-        }>("get_messages", { page: 1, pageSize: 20 });
+        }>("get_messages", { page: currentPage, pageSize: 20 });
 
-        list.innerHTML = "";
+        totalPages = Math.ceil(resp.total / resp.page_size);
 
-        if (resp.messages.length === 0) {
+        if (!loadMore) {
+            list.innerHTML = "";
+        } else {
+            list.querySelector(".loading-more")?.remove();
+        }
+
+        if (resp.messages.length === 0 && !loadMore) {
             list.style.display = "none";
             emptyState.style.display = "flex";
             return;
@@ -130,9 +150,24 @@ async function loadMessages() {
         for (const msg of resp.messages) {
             list.appendChild(createMessageElement(msg));
         }
+
+        // 没有更多数据时显示提示
+        if (currentPage >= totalPages && loadMore) {
+            const hint = document.createElement("div");
+            hint.className = "no-more-hint";
+            hint.textContent = "没有更多消息了";
+            list.appendChild(hint);
+        }
     } catch (e) {
-        list.innerHTML = "";
+        if (loadMore) {
+            list.querySelector(".loading-more")?.remove();
+            currentPage--;
+        } else {
+            list.innerHTML = "";
+        }
         console.error("加载消息失败:", e);
+    } finally {
+        isLoadingMore = false;
     }
 }
 
@@ -386,6 +421,16 @@ document.addEventListener("mouseup", (e: MouseEvent) => {
         if (pageId === "page-detail" || pageId === "page-settings") {
             navigate("messages");
         }
+    }
+});
+
+// ===== 消息列表滚动加载 =====
+
+document.getElementById("message-list")?.addEventListener("scroll", (e) => {
+    const list = e.target as HTMLElement;
+    const threshold = 100;
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - threshold) {
+        loadMessages(true);
     }
 });
 

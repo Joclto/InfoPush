@@ -538,6 +538,25 @@ body {
   justify-content: center;
 }
 
+.loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.loading-more .spinner {
+  width: 20px;
+  height: 20px;
+}
+
+.no-more-hint {
+  text-align: center;
+  padding: 12px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 .spinner {
   width: 28px;
   height: 28px;
