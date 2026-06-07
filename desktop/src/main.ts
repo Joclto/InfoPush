@@ -374,6 +374,21 @@ listen<MessageData>("new-message", async (event) => {
     }
 });
 
+// ===== 鼠标侧键导航 =====
+
+document.addEventListener("mouseup", (e: MouseEvent) => {
+    const activePage = document.querySelector(".page.active");
+    if (!activePage) return;
+
+    // XButton1 (侧键后退, button === 3)
+    if (e.button === 3) {
+        const pageId = activePage.id;
+        if (pageId === "page-detail" || pageId === "page-settings") {
+            navigate("messages");
+        }
+    }
+});
+
 // ===== 自动登录 ===== 
 
 // 回填上次服务器地址
