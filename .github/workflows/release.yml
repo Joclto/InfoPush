@@ -68,6 +68,9 @@ jobs:
           mkdir -p app/keystore
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore/infopush-release.jks
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x app/gradlew
+
       - name: Build release APK
         working-directory: app
         env:
