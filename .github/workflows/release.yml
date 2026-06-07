@@ -64,7 +64,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore/infopush-release.jks
+        run: |
+          mkdir -p app/keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore/infopush-release.jks
 
       - name: Build release APK
         working-directory: app
@@ -99,6 +101,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
