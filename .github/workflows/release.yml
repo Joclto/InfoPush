@@ -74,7 +74,7 @@ jobs:
       - name: Build release APK
         working-directory: app
         env:
-          KEYSTORE_PATH: keystore/infopush-release.jks
+          KEYSTORE_PATH: ${{ github.workspace }}/app/keystore/infopush-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
