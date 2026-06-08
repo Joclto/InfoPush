@@ -83,7 +83,7 @@ jobs:
       - name: Upload APK to Release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          draft: false
           files: app/app/build/outputs/apk/release/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -137,5 +137,5 @@ jobs:
 
             ### 更新内容
             请查看下方 commits 记录。
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
