@@ -139,3 +139,37 @@ jobs:
             请查看下方 commits 记录。
           releaseDraft: false
           prerelease: false
+
+      - name: Package portable zip for JoclToolkit
+        id: package
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          # The portable exe is directly from the build output
+          $exe = "desktop/src-tauri/target/release/InfoPush.exe"
+          if (-not (Test-Path $exe)) { Write-Error "InfoPush.exe not found"; exit 1 }
+          # Create portable zip
+          $zipName = "info-push-v${version}.zip"
+          Compress-Archive -Path $exe -DestinationPath $zipName
+          # Calculate checksum and size
+          $hash = (Get-FileHash $zipName -Algorithm SHA256).Hash
+          $size = (Get-Item $zipName).Length
+          echo "zipName=$zipName" >> $env:GITHUB_OUTPUT
+          echo "checksum=sha256:$hash" >> $env:GITHUB_OUTPUT
+          echo "size=$size" >> $env:GITHUB_OUTPUT
+          echo "Packaged: $zipName ($size bytes, sha256:$hash)"
+
+      - name: Upload portable zip to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          gh release upload "$tag" "${{ steps.package.outputs.zipName }}" --clobber
+
+      - name: Dispatch to JoclToolkit
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          gh api repos/Joclto/JoclToolkit/dispatches -f event_type=tool-updated -f "client_payload[tool_id]=info-push" -f "client_payload[tool_name]=InfoPush" -f "client_payload[version]=$tag" -f "client_payload[source_repo]=$env:GITHUB_REPOSITORY" -f "client_payload[asset_name]=${{ steps.package.outputs.zipName }}" -f "client_payload[checksum]=${{ steps.package.outputs.checksum }}" -f "client_payload[size]=${{ steps.package.outputs.size }}"
+          echo "Dispatched to JoclToolkit"
