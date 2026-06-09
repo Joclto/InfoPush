@@ -1,12 +1,12 @@
 [package]
-name = "desktop"
+name = "InfoPush"
 version = "0.1.0"
 description = "InfoPush Desktop Client"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "desktop_lib"
+name = "infopush_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
