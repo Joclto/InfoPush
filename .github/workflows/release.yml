@@ -146,9 +146,10 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $version = $tag.TrimStart('v')
           # The portable exe is directly from the build output
-          $exe = "desktop/src-tauri/target/release/InfoPush.exe"
-          if (-not (Test-Path $exe)) { Write-Error "InfoPush.exe not found"; exit 1 }
-          # Create portable zip
+          # Tauri binary name matches Cargo.toml [[bin]] name = "desktop"
+          $exe = "desktop/src-tauri/target/release/desktop.exe"
+          if (-not (Test-Path $exe)) { Write-Error "desktop.exe not found"; exit 1 }
+          # Create portable zip (rename to InfoPush.exe inside zip)
           $zipName = "info-push-v${version}.zip"
           Compress-Archive -Path $exe -DestinationPath $zipName
           # Calculate checksum and size
